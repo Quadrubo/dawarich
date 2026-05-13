@@ -67,6 +67,28 @@ export class EventHandlers {
       this._onGapfillClearPreview,
     )
     document.addEventListener("gapfill:marker", this._onGapfillMarker)
+    this._onGapfillClearViaMarkers = () => {
+      this._clearGapfillViaMarkers()
+    }
+    document.addEventListener(
+      "gapfill:clear-via-markers",
+      this._onGapfillClearViaMarkers,
+    )
+    // Bare map click for via-point placement
+    this._onMapClickForGapfill = (e) => {
+      if (!this._gapfillActive) return
+      const pointFeatures = this.map.queryRenderedFeatures(e.point, {
+        layers: ["points"],
+      })
+      if (pointFeatures.length > 0) return
+      const { lng, lat } = e.lngLat
+      document.dispatchEvent(
+        new CustomEvent("gapfill:map-clicked", {
+          detail: { lon: lng, lat },
+        }),
+      )
+    }
+    this.map.on("click", this._onMapClickForGapfill)
   }
 
   /**
@@ -1199,10 +1221,13 @@ export class EventHandlers {
    * Add or update an A/B marker on the map for gap-fill point selection.
    * @param {Object} detail - { label: "A"|"B", lon, lat }
    */
-  _updateGapfillMarker({ label, lon, lat }) {
-    // Remove existing marker for this label
+  _updateGapfillMarker({ label, lon, lat, type }) {
+    // Remove existing marker for this label and type
     this._gapfillMarkers = this._gapfillMarkers.filter((m) => {
-      if (m._gapfillLabel === label) {
+      if (
+        m._gapfillLabel === label &&
+        m._gapfillType === (type || "endpoint")
+      ) {
         m.remove()
         return false
       }
@@ -1210,10 +1235,11 @@ export class EventHandlers {
     })
 
     const el = document.createElement("div")
-    el.className = "gapfill-map-marker"
+    el.className = type === "via" ? "gapfill-via-marker" : "gapfill-map-marker"
     el.textContent = label
     const marker = new maplibregl.Marker({ element: el, anchor: "center" })
     marker._gapfillLabel = label
+    marker._gapfillType = type || "endpoint"
     marker.setLngLat([lon, lat]).addTo(this.map)
     this._gapfillMarkers.push(marker)
   }
@@ -1229,6 +1255,19 @@ export class EventHandlers {
   }
 
   /**
+   * Remove only via-point markers from the map, leaving A/B markers intact.
+   */
+  _clearGapfillViaMarkers() {
+    this._gapfillMarkers = this._gapfillMarkers.filter((m) => {
+      if (m._gapfillType === "via") {
+        m.remove()
+        return false
+      }
+      return true
+    })
+  }
+
+  /**
    * Clean up gap-fill event listeners.
    * Call this from the controller's disconnect.
    */
@@ -1241,6 +1280,13 @@ export class EventHandlers {
       this._onGapfillClearPreview,
     )
     document.removeEventListener("gapfill:marker", this._onGapfillMarker)
+    document.removeEventListener(
+      "gapfill:clear-via-markers",
+      this._onGapfillClearViaMarkers,
+    )
+    if (this._onMapClickForGapfill) {
+      this.map.off("click", this._onMapClickForGapfill)
+    }
     this._clearGapfillPreview()
     this._clearGapfillMarkers()
   }

@@ -26,7 +26,7 @@ RSpec.describe Gapfill::Router do
     context 'with a successful response' do
       before do
         stub_request(:get, 'https://brouter.test/brouter')
-          .with(query: hash_including(profile: 'car-fast', format: 'geojson'))
+          .with(query: hash_including(profile: 'car-vario', format: 'geojson'))
           .to_return(status: 200, body: geojson_response)
       end
 
@@ -91,6 +91,67 @@ RSpec.describe Gapfill::Router do
       it 'raises RoutingError' do
         expect { router.route(from: from, to: to, mode: 'Car') }
           .to raise_error(Gapfill::Router::RoutingError, /No route found/)
+      end
+    end
+
+    context 'with via-points' do
+      let(:via) { [{ lon: 13.3950, lat: 52.5180 }] }
+
+      before do
+        stub_request(:get, 'https://brouter.test/brouter')
+          .with(query: hash_including(
+            lonlats: '13.3888,52.517|13.395,52.518|13.405,52.52',
+            profile: 'car-vario'
+          ))
+          .to_return(status: 200, body: geojson_response)
+      end
+
+      it 'includes via-points in the lonlats parameter' do
+        router.route(from: from, to: to, mode: 'Car', via: via)
+
+        expect(WebMock).to have_requested(:get, 'https://brouter.test/brouter')
+          .with(query: hash_including(lonlats: '13.3888,52.517|13.395,52.518|13.405,52.52'))
+      end
+    end
+
+    context 'with multiple via-points' do
+      let(:via) do
+        [
+          { lon: 13.3920, lat: 52.5175 },
+          { lon: 13.3980, lat: 52.5190 }
+        ]
+      end
+
+      before do
+        stub_request(:get, 'https://brouter.test/brouter')
+          .with(query: hash_including(
+            lonlats: '13.3888,52.517|13.392,52.5175|13.398,52.519|13.405,52.52'
+          ))
+          .to_return(status: 200, body: geojson_response)
+      end
+
+      it 'preserves via-point ordering in the lonlats parameter' do
+        router.route(from: from, to: to, mode: 'Car', via: via)
+
+        expect(WebMock).to have_requested(:get, 'https://brouter.test/brouter')
+          .with(query: hash_including(
+            lonlats: '13.3888,52.517|13.392,52.5175|13.398,52.519|13.405,52.52'
+          ))
+      end
+    end
+
+    context 'with empty via-points' do
+      before do
+        stub_request(:get, 'https://brouter.test/brouter')
+          .with(query: hash_including(
+            lonlats: '13.3888,52.517|13.405,52.52'
+          ))
+          .to_return(status: 200, body: geojson_response)
+      end
+
+      it 'works the same as without via-points' do
+        result = router.route(from: from, to: to, mode: 'Car', via: [])
+        expect(result).to eq(coords)
       end
     end
 
