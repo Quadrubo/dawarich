@@ -141,6 +141,13 @@ export class EventHandlers {
       ? [
           {
             type: "button",
+            handler: "openPointPadding",
+            id: pointId,
+            entityType: "point",
+            label: "Pad",
+          },
+          {
+            type: "button",
             handler: "handleDelete",
             id: pointId,
             entityType: "point",

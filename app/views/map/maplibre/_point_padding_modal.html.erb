@@ -1,0 +1,67 @@
+<div class="point-padding-modal hidden"
+     data-controller="point-padding"
+     data-point-padding-target="modal">
+  <div class="point-padding-backdrop" data-action="click->point-padding#close"></div>
+  <div class="point-padding-dialog">
+    <button type="button"
+            class="point-padding-close"
+            data-action="click->point-padding#close"
+            aria-label="Close">&times;</button>
+
+    <h3 class="point-padding-title">Pad point</h3>
+    <p class="point-padding-source" data-point-padding-target="sourceLabel">-</p>
+
+    <%= form_with url: point_paddings_path, method: :post,
+                  data: { point_padding_target: "form" } do %>
+      <input type="hidden" name="source_point_id" data-point-padding-target="sourcePointInput">
+      <input type="hidden" name="duration_seconds" data-point-padding-target="durationSecondsInput">
+
+      <fieldset class="point-padding-field">
+        <legend>Direction</legend>
+        <div class="point-padding-radio-group">
+          <label>
+            <input type="radio" name="direction" value="before" checked> Before
+          </label>
+          <label>
+            <input type="radio" name="direction" value="after"> After
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="point-padding-field">
+        <label for="point-padding-count">How many points?</label>
+        <input id="point-padding-count" name="count" type="number" min="1" max="100" value="5"
+               data-point-padding-target="countInput">
+      </div>
+
+      <fieldset class="point-padding-field">
+        <legend>Time window</legend>
+        <div class="point-padding-duration-row">
+          <input type="number" min="1" value="30"
+                 aria-label="Time window value"
+                 data-point-padding-target="durationValueInput">
+          <select aria-label="Time window unit"
+                  data-point-padding-target="durationUnitInput">
+            <option value="seconds">seconds</option>
+            <option value="minutes" selected>minutes</option>
+            <option value="hours">hours</option>
+            <option value="days">days</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <div class="point-padding-field">
+        <label for="point-padding-interpolation">Spacing</label>
+        <select id="point-padding-interpolation" name="interpolation">
+          <option value="evenly" selected>Evenly spaced</option>
+        </select>
+      </div>
+
+      <div class="point-padding-actions">
+        <button type="button" class="btn btn-sm" data-action="click->point-padding#close">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary"
+                data-action="click->point-padding#submit">Add points</button>
+      </div>
+    <% end %>
+  </div>
+</div>
