@@ -1751,6 +1751,14 @@ export default class extends Controller {
     }
   }
 
+  openPointPadding(event) {
+    const pointId = event.currentTarget.dataset.id
+    if (!pointId) return
+    document.dispatchEvent(
+      new CustomEvent("point-padding:open", { detail: { pointId } }),
+    )
+  }
+
   /**
    * Open visit edit modal
    */
