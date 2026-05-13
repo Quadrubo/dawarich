@@ -71,12 +71,23 @@
     </div>
   </div>
 
+  <%# Via-points row %>
+  <div class="gapfill-via-row" data-gapfill-target="viaRow">
+    <div class="gapfill-via-chips" data-gapfill-target="viaPointsContainer"></div>
+    <button type="button"
+            class="gapfill-add-via-btn"
+            data-action="click->gapfill#addVia"
+            data-gapfill-target="addViaButton"
+            title="Add a via-point to guide the route">Add via</button>
+  </div>
+
   <%# Hidden form for Turbo Stream submission %>
   <%= form_with url: gapfills_path, method: :post, data: { gapfill_target: "form" }, class: "hidden" do %>
     <input type="hidden" name="start_point_id" data-gapfill-target="startPointInput">
     <input type="hidden" name="end_point_id" data-gapfill-target="endPointInput">
     <input type="hidden" name="mode" data-gapfill-target="modeInput">
     <input type="hidden" name="alternative" data-gapfill-target="alternativeInput">
+    <input type="hidden" name="via_points" data-gapfill-target="viaPointsInput">
   <% end %>
 
   <%# Status line %>

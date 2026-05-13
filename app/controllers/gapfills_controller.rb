@@ -17,7 +17,8 @@ class GapfillsController < ApplicationController
       from: { lon: @start_point.lon, lat: @start_point.lat },
       to: { lon: @end_point.lon, lat: @end_point.lat },
       mode: params[:mode],
-      alternative: params[:alternative] || 0
+      alternative: params[:alternative] || 0,
+      via: parse_via_points
     )
     render json: { coordinates: coordinates }
   rescue Gapfill::Router::RoutingError => e
@@ -31,7 +32,8 @@ class GapfillsController < ApplicationController
       from: { lon: @start_point.lon, lat: @start_point.lat },
       to: { lon: @end_point.lon, lat: @end_point.lat },
       mode: params[:mode],
-      alternative: params[:alternative] || 0
+      alternative: params[:alternative] || 0,
+      via: parse_via_points
     )
 
     new_points = Gapfill::PointGenerator.new(
@@ -92,11 +94,29 @@ class GapfillsController < ApplicationController
     "Gap-fill (#{mode}, #{time})"
   end
 
+  def parse_via_points
+    raw = params[:via_points].presence
+    return [] unless raw
+
+    parsed = JSON.parse(raw)
+    return [] unless parsed.is_a?(Array)
+
+    parsed.map do |pair|
+      raise JSON::ParserError, 'invalid via-point' unless pair.is_a?(Array) && pair.size == 2
+
+      { lon: pair[0].to_f, lat: pair[1].to_f }
+    end
+  rescue JSON::ParserError
+    []
+  end
+
   def require_gapfill_enabled!
     return if DawarichSettings.gapfill_enabled?
 
     respond_to do |format|
-      format.html { redirect_to map_v2_path, alert: 'Gap-fill requires BROUTER_URL to be configured.', status: :see_other }
+      format.html do
+        redirect_to map_v2_path, alert: 'Gap-fill requires BROUTER_URL to be configured.', status: :see_other
+      end
       format.json { render json: { error: 'Gap-fill requires BROUTER_URL to be configured.' }, status: :forbidden }
       format.turbo_stream do
         render turbo_stream: stream_flash(:error, 'Gap-fill requires BROUTER_URL to be configured.')
