@@ -21,6 +21,9 @@ export default class extends Controller {
     "endPointInput",
     "modeInput",
     "alternativeInput",
+    "viaPointsContainer",
+    "viaPointsInput",
+    "addViaButton",
   ]
 
   static values = {
@@ -31,11 +34,14 @@ export default class extends Controller {
   connect() {
     this.startPoint = null
     this.endPoint = null
+    this.viaPoints = [] // Array of { lon, lat }
     this.currentAlternative = 0
     this.cachedRoutes = {} // { index: coordinates }
     this._selectingSlot = null // null = auto, "start" or "end" = re-picking
+    this._placingVia = false
 
     this._handlePointSelected = this.handlePointSelected.bind(this)
+    this._handleMapClicked = this.handleMapClicked.bind(this)
     this._handleStart = this.enter.bind(this)
     this._handleStop = this.exit.bind(this)
     this._handleModeChange = this.modeChanged.bind(this)
@@ -43,6 +49,7 @@ export default class extends Controller {
       "gapfill:point-selected",
       this._handlePointSelected,
     )
+    document.addEventListener("gapfill:map-clicked", this._handleMapClicked)
     document.addEventListener("gapfill:start", this._handleStart)
     document.addEventListener("gapfill:stop", this._handleStop)
     this.modeSelectTarget.addEventListener("change", this._handleModeChange)
@@ -53,6 +60,7 @@ export default class extends Controller {
       "gapfill:point-selected",
       this._handlePointSelected,
     )
+    document.removeEventListener("gapfill:map-clicked", this._handleMapClicked)
     document.removeEventListener("gapfill:start", this._handleStart)
     document.removeEventListener("gapfill:stop", this._handleStop)
     this.modeSelectTarget.removeEventListener("change", this._handleModeChange)
@@ -73,12 +81,15 @@ export default class extends Controller {
       this.activeValue = true
       this.startPoint = null
       this.endPoint = null
+      this.viaPoints = []
       this.currentAlternative = 0
       this.cachedRoutes = {}
       this._selectingSlot = null
+      this._placingVia = false
       this.panelTarget.classList.remove("hidden")
       this.confirmButtonTarget.disabled = true
       this.alternativesNavTarget.classList.add("inactive")
+      this._renderViaChips()
       this.startPointLabelTarget.textContent = "-"
       this.endPointLabelTarget.textContent = "-"
       this.statusTarget.textContent = "Select the start point"
@@ -98,9 +109,11 @@ export default class extends Controller {
     this.activeValue = false
     this.startPoint = null
     this.endPoint = null
+    this.viaPoints = []
     this.currentAlternative = 0
     this.cachedRoutes = {}
     this._selectingSlot = null
+    this._placingVia = false
     this.panelTarget.classList.add("hidden")
 
     document.dispatchEvent(new CustomEvent("gapfill:exit"))
@@ -114,6 +127,13 @@ export default class extends Controller {
    */
   handlePointSelected(event) {
     const { pointId, lon, lat, timestamp } = event.detail
+
+    // In via-placement mode, use coordinates as a via-point
+    if (this._placingVia) {
+      this._addViaPoint(lon, lat)
+      return
+    }
+
     const point = { id: pointId, lon, lat, timestamp }
     const label = `#${pointId} (${lat.toFixed(4)}, ${lon.toFixed(4)})`
 
@@ -156,6 +176,7 @@ export default class extends Controller {
     const tmp = this.startPoint
     this.startPoint = this.endPoint
     this.endPoint = tmp
+    this.viaPoints.reverse()
 
     this.startPointLabelTarget.textContent = this.startPoint
       ? `#${this.startPoint.id} (${this.startPoint.lat.toFixed(4)}, ${this.startPoint.lon.toFixed(4)})`
@@ -168,6 +189,8 @@ export default class extends Controller {
       this._dispatchMarker("A", this.startPoint.lon, this.startPoint.lat)
     if (this.endPoint)
       this._dispatchMarker("B", this.endPoint.lon, this.endPoint.lat)
+    this._renderViaChips()
+    this._dispatchAllViaMarkers()
 
     if (this.startPoint && this.endPoint) {
       this._fetchPreview()
@@ -235,9 +258,56 @@ export default class extends Controller {
     this.endPointInputTarget.value = this.endPoint.id
     this.modeInputTarget.value = this.modeSelectTarget.value
     this.alternativeInputTarget.value = this.currentAlternative
+    this.viaPointsInputTarget.value = JSON.stringify(
+      this.viaPoints.map((v) => [v.lon, v.lat]),
+    )
 
     this.formTarget.requestSubmit()
     this.exit()
+  }
+
+  /**
+   * Toggle via-point placement mode on/off.
+   */
+  addVia() {
+    this._placingVia = !this._placingVia
+    this.addViaButtonTarget.classList.toggle("active", this._placingVia)
+
+    if (this._placingVia) {
+      this.statusTarget.textContent = "Click on the map to place via-points"
+    } else {
+      this.statusTarget.textContent =
+        this.startPoint && this.endPoint
+          ? "Via-point placement stopped"
+          : "Select the start point"
+    }
+  }
+
+  /**
+   * Handle bare map click (no point feature hit) during via-placement.
+   */
+  handleMapClicked(event) {
+    if (!this._placingVia) return
+    const { lon, lat } = event.detail
+    this._addViaPoint(lon, lat)
+  }
+
+  /**
+   * Remove a via-point by index (click on chip).
+   */
+  removeVia(event) {
+    const index = Number.parseInt(event.currentTarget.dataset.gapfillIndex, 10)
+    if (Number.isNaN(index) || index < 0 || index >= this.viaPoints.length)
+      return
+
+    this.viaPoints.splice(index, 1)
+    this._renderViaChips()
+    document.dispatchEvent(new CustomEvent("gapfill:clear-via-markers"))
+    this._dispatchAllViaMarkers()
+
+    if (this.startPoint && this.endPoint) {
+      this._fetchPreview()
+    }
   }
 
   // --- Private ---
@@ -267,6 +337,7 @@ export default class extends Controller {
           end_point_id: this.endPoint.id,
           mode: this.modeSelectTarget.value,
           alternative: index,
+          via_points: JSON.stringify(this.viaPoints.map((v) => [v.lon, v.lat])),
         }),
       })
 
@@ -335,11 +406,47 @@ export default class extends Controller {
     document.dispatchEvent(new CustomEvent("gapfill:clear-preview"))
   }
 
-  _dispatchMarker(label, lon, lat) {
+  _dispatchMarker(label, lon, lat, type = "endpoint") {
     document.dispatchEvent(
       new CustomEvent("gapfill:marker", {
-        detail: { label, lon, lat },
+        detail: { label, lon, lat, type },
       }),
     )
+  }
+
+  _addViaPoint(lon, lat) {
+    this.viaPoints.push({ lon, lat })
+    this._renderViaChips()
+
+    const index = this.viaPoints.length
+    this._dispatchMarker(String(index), lon, lat, "via")
+
+    if (this.startPoint && this.endPoint) {
+      this._fetchPreview()
+    } else {
+      this.statusTarget.textContent = `Via-point ${index} added`
+    }
+  }
+
+  _renderViaChips() {
+    const container = this.viaPointsContainerTarget
+    container.innerHTML = ""
+
+    this.viaPoints.forEach((via, i) => {
+      const chip = document.createElement("button")
+      chip.type = "button"
+      chip.className = "gapfill-via-chip"
+      chip.dataset.gapfillIndex = i
+      chip.dataset.action = "click->gapfill#removeVia"
+      chip.title = `Via ${i + 1} (${via.lat.toFixed(4)}, ${via.lon.toFixed(4)}) - click to remove`
+      chip.textContent = `${i + 1}`
+      container.appendChild(chip)
+    })
+  }
+
+  _dispatchAllViaMarkers() {
+    this.viaPoints.forEach((via, i) => {
+      this._dispatchMarker(String(i + 1), via.lon, via.lat, "via")
+    })
   }
 }

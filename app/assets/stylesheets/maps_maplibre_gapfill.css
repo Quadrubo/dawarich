@@ -303,6 +303,71 @@ button.gapfill-point-row:hover {
   }
 }
 
+/* Via-points row */
+.gapfill-via-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid oklch(var(--bc) / 0.08);
+}
+
+.gapfill-add-via-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid oklch(var(--wa));
+  background: oklch(var(--wa));
+  color: oklch(var(--wac));
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gapfill-add-via-btn:hover {
+  background: oklch(var(--wa) / 0.85);
+}
+
+.gapfill-add-via-btn.active {
+  background: oklch(var(--wa) / 0.3);
+  border-style: dashed;
+}
+
+.gapfill-via-chips {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: thin;
+}
+
+.gapfill-via-chip {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: oklch(var(--wa));
+  color: oklch(var(--wac));
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.gapfill-via-chip:hover {
+  background: oklch(var(--er));
+  color: oklch(var(--erc));
+}
+
 /* Map markers for selected gap-fill points */
 .gapfill-map-marker {
   width: 28px;
@@ -317,5 +382,22 @@ button.gapfill-point-row:hover {
   font-weight: 800;
   border: 3px solid #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* Via-point map markers */
+.gapfill-via-marker {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: oklch(var(--wa));
+  color: oklch(var(--wac));
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
