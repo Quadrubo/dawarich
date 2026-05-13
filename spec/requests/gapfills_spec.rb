@@ -128,6 +128,26 @@ RSpec.describe '/gapfills', type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
+      it 'returns coordinates with via-points' do
+        post preview_gapfills_url, params: {
+          start_point_id: start_point.id, end_point_id: end_point.id, mode: 'Car',
+          via_points: '[[13.3950,52.5180]]'
+        }
+
+        expect(response).to be_successful
+        json = JSON.parse(response.body)
+        expect(json['coordinates']).to be_an(Array)
+      end
+
+      it 'handles invalid via_points JSON gracefully' do
+        post preview_gapfills_url, params: {
+          start_point_id: start_point.id, end_point_id: end_point.id, mode: 'Car',
+          via_points: 'not-valid-json'
+        }
+
+        expect(response).to be_successful
+      end
+
       it 'returns 404 for another user\'s points' do
         other_point = create(:point, user: other_user)
 
@@ -157,6 +177,15 @@ RSpec.describe '/gapfills', type: :request do
         expect do
           post gapfills_url, params: {
             start_point_id: start_point.id, end_point_id: end_point.id, mode: 'Car'
+          }
+        end.to change(Point.inferred_only, :count).by(2)
+      end
+
+      it 'creates inferred points with via-points' do
+        expect do
+          post gapfills_url, params: {
+            start_point_id: start_point.id, end_point_id: end_point.id, mode: 'Car',
+            via_points: '[[13.3950,52.5180]]'
           }
         end.to change(Point.inferred_only, :count).by(2)
       end

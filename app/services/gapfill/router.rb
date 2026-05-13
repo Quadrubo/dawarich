@@ -30,12 +30,13 @@ module Gapfill
     # Returns an Array of [lon, lat] pairs for a single route.
     # mode: one of the keys from self.modes (e.g. "Walk", "Car")
     # alternative: 0 = primary, 1-3 = alternatives
-    def route(from:, to:, mode:, alternative: 0)
+    # via: optional Array of { lon:, lat: } hashes for intermediate waypoints
+    def route(from:, to:, mode:, alternative: 0, via: [])
       profile = self.class.modes[mode]
       raise RoutingError, "unknown mode: #{mode}" unless profile
 
       idx = alternative.to_i.clamp(0, MAX_ALTERNATIVES)
-      fetch_route(from, to, profile, idx)
+      fetch_route(from, to, profile, idx, via)
     end
 
     # Returns the configured modes as { label => profile } hash.
@@ -55,11 +56,14 @@ module Gapfill
 
     private
 
-    def fetch_route(from, to, profile, alternativeidx)
+    def fetch_route(from, to, profile, alternativeidx, via = [])
+      waypoints = [from, *via, to]
+      lonlats_str = waypoints.map { |w| "#{w[:lon]},#{w[:lat]}" }.join('|')
+
       response = HTTParty.get(
         @brouter_url,
         query: {
-          lonlats: "#{from[:lon]},#{from[:lat]}|#{to[:lon]},#{to[:lat]}",
+          lonlats: lonlats_str,
           profile: profile,
           alternativeidx: alternativeidx,
           format: 'geojson'
@@ -79,7 +83,7 @@ module Gapfill
       raise RoutingError, 'No route found between these points.' if coordinates.blank?
 
       coordinates
-    rescue HTTParty::Error, JSON::ParserError, Errno::ECONNREFUSED, Net::OpenTimeout, Net::ReadTimeout => e
+    rescue HTTParty::Error, JSON::ParserError, Errno::ECONNREFUSED, Net::OpenTimeout, Net::ReadTimeout
       raise RoutingError, 'Could not connect to the routing service. Please try again later.'
     end
 
