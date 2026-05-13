@@ -65,6 +65,9 @@
     <%= render 'map/maplibre/gapfill_panel' %>
   <% end %>
 
+  <!-- Point padding modal -->
+  <%= render 'map/maplibre/point_padding_modal' %>
+
   <% if DawarichSettings.self_hosted? || current_user.pro? %>
     <!-- Residency day counter modal -->
     <%= render 'map/maplibre/residency_modal' %>

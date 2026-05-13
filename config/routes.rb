@@ -99,6 +99,8 @@ Rails.application.routes.draw do
     collection { post :preview }
   end
 
+  resources :point_paddings, only: [:create]
+
   resources :imports
   resources :tracks, only: [] do
     resources :segments, controller: 'tracks/segments', only: %i[index update]
